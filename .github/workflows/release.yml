@@ -1,0 +1,29 @@
+# A tag v<version> becomes a GitHub release holding what install.sh downloads:
+# cc-gateway-<version>.tar.gz and its .sha256 (scripts/pack.sh).
+# Live only where this folder is the repo root (cc-gateway); inside the kit, GitHub never reads it.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: the tag names the package's version
+        run: |
+          want="v$(node -p 'require("./package.json").version')"
+          [ "$GITHUB_REF_NAME" = "$want" ] || { echo "tag $GITHUB_REF_NAME, but package.json says $want" >&2; exit 1; }
+      - run: sh scripts/pack.sh --out dist
+      - name: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/cc-gateway-*.tar.gz dist/cc-gateway-*.tar.gz.sha256 --title "$GITHUB_REF_NAME" --generate-notes
